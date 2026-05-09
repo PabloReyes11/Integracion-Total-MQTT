@@ -76,8 +76,3 @@ PROYECTO: VestaGuard
 """
 ```
 
-### Comentarios críticos en main.py
-El callback `enrutar_topico()` debe contener comentarios que señalen explícitamente donde ocurre la invocación a la HAL (actuadores.activar_vibrador() y actuadores.set_color_rgb()), validando el encapsulamiento exigido por la rúbrica.
-
-## Nota final
-Antes de subir a GitHub, asegúrate de incluir evidencia de funcionamiento real del hardware y el enlace al repositorio en la plataforma de entrega.
