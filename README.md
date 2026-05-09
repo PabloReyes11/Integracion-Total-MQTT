@@ -46,6 +46,3 @@ Repositorio de entrega para la práctica de Sistemas Programables.
 **Solución:** Se verificaron la alimentación, el transistor, los pines y la publicación de mensajes en los tópicos correctos.
 
 **Conclusión:** Separar la HAL de la lógica MQTT hizo posible corregir fallas sin comprometer el funcionamiento general del proyecto.
-
-## Nota final
-Antes de subir a GitHub, asegúrate de incluir evidencia de funcionamiento real del hardware y el enlace al repositorio en la plataforma de entrega.
