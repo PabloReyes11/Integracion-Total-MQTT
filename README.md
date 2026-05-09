@@ -65,14 +65,4 @@ Las evidencias de funcionamiento del sistema (capturas de pantalla de telemetrí
 - Los tres archivos tienen el bloque docstring con OBJETIVO, INTEGRANTES y PROYECTO en la cabecera.
 - El repositorio está configurado como público para evitar error 404 durante la revisión.
 
-### Bloque de cabecera requerido (idéntico en los 3 archivos)
-```python
-"""
-OBJETIVO: <Punto de entrada MQTT / HAL de Sensores / Servidor de recepción>
-INTEGRANTES: Alvarez Guevara Estefania Guadalupe,
-             Rangel Hernandez Aldo,
-             Reyes Gutierrez Pablo Alberto
-PROYECTO: VestaGuard
-"""
-```
 
