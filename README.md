@@ -18,7 +18,6 @@ El sistema implementa un modelo de publicación/suscripción asincrónico sobre 
 | Sensores (PIR, Ultrasónico, MPU6050) | `vestaguard/telemetria/sensores` | ESP32 Publica → Python/App Suscriben | `{"pir":"NO","distancia_cm":154.3,"aceleracion_y":-0.02}` |
 | Motor Vibrador | `vestaguard/control/vibrador` | App/Python Publican → ESP32 Suscribe | `ON` / `OFF` |
 | LED RGB | `vestaguard/control/rgb` | App/Python Publican → ESP32 Suscribe | `ROJO` / `VERDE` / `APAGAR` |
-| Módulo Relevador (Foco 110V) | `vestaguard/control/relevador` | App/Python Publican → ESP32 Suscribe | `ON` / `OFF` |
 
 **Flujo resumido:** El ESP32 publica telemetría JSON cada 2 s hacia el broker Mosquitto. El servidor Python (servidor.py) se suscribe y muestra los datos con marca de tiempo. Los comandos de control viajan en dirección contraria: MQTT Dash o servidor.py publican en los tópicos de control y la ESP32 delega la acción física a la clase HAL (ActuatorBox).
 
