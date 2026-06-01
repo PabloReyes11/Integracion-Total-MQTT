@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<!--
+OBJETIVO: Dashboard web minimalista de monitoreo y control remoto para VestaGuard.
+          Muestra en tiempo real: estado del sistema, sensores, alertas IA, actuadores.
+          Basado en: Sist Progr Unidad4 Firebase.txt (recursos de la maestra).
+          Estructura Firebase: vestaguard/sensores, vestaguard/alertas_ia,
+                               vestaguard/actuadores, vestaguard/sistema
+INTEGRANTES: Alvarez Guevara Estefania Guadalupe (23240077),
+             Rangel Hernandez Aldo (23240272),
+             Reyes Gutierrez Pablo Alberto (23240055)
+PROYECTO: VestaGuard — Chaleco Haptico Inteligente para Seguridad Urbana
+-->
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VestaGuard — Panel de Control</title>
+  <meta name="description" content="Panel de control VestaGuard. Monitoreo en tiempo real vía Firebase."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <!-- Firebase JS SDK v9 compat -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --panel: #f9fafb;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+  --text: #111827;
+  --muted: #6b7280;
+  --accent: #2563eb;
+  --accent-soft: #eff6ff;
+  --green: #16a34a;
+  --yellow: #d97706;
+  --red: #dc2626;
+  --purple: #7c3aed;
+  --radius: 18px;
+  --radius-s: 12px;
+  --shadow: 0 1px 2px rgba(15, 23, 42, .05), 0 10px 30px rgba(15, 23, 42, .04);
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background:
+    radial-gradient(circle at top, #f8fbff 0%, #ffffff 42%),
+    var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.app {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 16px 64px;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(16px);
+  background: rgba(255, 255, 255, .88);
+  border-bottom: 1px solid rgba(229, 231, 235, .9);
+  margin: 0 -16px;
+  padding: 16px;
+}
+
+.header-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.logo {
+  width: 44px; height: 44px; border-radius: 14px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.header-copy { min-width: 0; }
+.header-title { font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
+.header-sub { font-size: 12px; color: var(--muted); }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 12px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; letter-spacing: .2px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.badge-online { color: var(--green); border-color: #bbf7d0; background: #f0fdf4; }
+.badge-offline { color: var(--red); border-color: #fecaca; background: #fef2f2; }
+.badge-demo { color: var(--yellow); border-color: #fde68a; background: #fffbeb; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.badge-online .dot { animation: blink 1.4s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+.hero {
+  padding: 24px 0 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(300px, .8fr);
+  gap: 16px;
+  align-items: end;
+}
+
+.hero-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 22px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  margin-bottom: 10px;
+}
+
+.hero-title {
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.05;
+  letter-spacing: -.04em;
+  margin-bottom: 10px;
+}
+
+.hero-text { color: var(--muted); max-width: 62ch; }
+
+.hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metric {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  padding: 14px;
+}
+.metric-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+.metric-value { font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+.metric-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(300px, .95fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.stack { display: grid; gap: 16px; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.card-head {
+  padding: 18px 20px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card-title { font-size: 15px; font-weight: 700; }
+.card-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+.card-body { padding: 18px 20px 20px; }
+
+.cfg-toggle {
+  width: 100%; padding: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  background: none; border: none; cursor: pointer;
+  font-family: inherit; font-size: 14px; font-weight: 600; color: var(--accent);
+  text-align: left;
+}
+.cfg-toggle .arrow { font-size: 10px; transition: transform .2s; }
+.cfg-toggle.open .arrow { transform: rotate(180deg); }
+.cfg-body { display: none; padding-top: 16px; }
+.cfg-body.show { display: block; }
+.cfg-field { margin-top: 12px; }
+.cfg-field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+.cfg-field input {
+  width: 100%; padding: 11px 12px;
+  border: 1px solid var(--border-strong); border-radius: 12px;
+  font-size: 13px; font-family: inherit; outline: none;
+  color: var(--text); background: #fff;
+}
+.cfg-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(37, 99, 235, .08); }
+.btn-primary {
+  margin-top: 14px; width: 100%; padding: 12px 14px;
+  background: var(--accent); color: #fff; border: none;
+  border-radius: 12px; font-size: 14px; font-weight: 700;
+  cursor: pointer; font-family: inherit; transition: transform .15s, opacity .15s;
+}
+.btn-primary:hover { opacity: .96; transform: translateY(-1px); }
+.cfg-note {
+  margin-top: 12px; padding: 12px 14px;
+  background: #f8fafc; border: 1px solid var(--border);
+  border-radius: 12px; font-size: 12px; color: var(--muted);
+  line-height: 1.6;
+}
+
+.section { margin-top: 16px; }
+.section-label {
+  font-size: 11px; font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--muted);
+  margin: 0 0 10px 4px;
+}
+
+.ia-banner {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px;
+  transition: border-color .3s, box-shadow .3s;
+}
+.ia-banner.normal { border-color: #bbf7d0; box-shadow: 0 0 0 1px #dcfce7; }
+.ia-banner.vigilancia { border-color: #c4b5fd; box-shadow: 0 0 0 1px #ede9fe; }
+.ia-banner.amenaza { border-color: #fde68a; box-shadow: 0 0 0 1px #fef3c7; }
+.ia-banner.emergencia { border-color: #fecaca; box-shadow: 0 0 0 1px #fee2e2; }
+.ia-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.ia-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.ia-chip { padding: 6px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.chip-normal { background: #dcfce7; color: var(--green); }
+.chip-vigilancia { background: #ede9fe; color: var(--purple); }
+.chip-amenaza { background: #fef3c7; color: var(--yellow); }
+.chip-emergencia { background: #fee2e2; color: var(--red); }
+.ia-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.ia-stat { padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--panel); }
+.ia-stat .ia-val { font-size: 22px; font-weight: 800; letter-spacing: -.03em; }
+.ia-stat .ia-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+.sensor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.sensor-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+.sensor-card.ok { border-left: 4px solid var(--green); }
+.sensor-card.warn { border-left: 4px solid var(--yellow); }
+.sensor-card.alerta { border-left: 4px solid var(--red); }
+.sensor-icon { font-size: 18px; margin-bottom: 10px; }
+.sensor-name { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 6px; }
+.sensor-val { font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
+.sensor-unit { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+.gps-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  padding: 16px;
+  box-shadow: var(--shadow);
+  display: flex; align-items: center; gap: 14px;
+}
+.gps-icon { font-size: 24px; }
+.gps-coords { font-size: 14px; font-weight: 700; color: var(--text); font-family: inherit; }
+.gps-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+.alerta-list { display: flex; flex-direction: column; gap: 10px; }
+.alerta-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+}
+.alerta-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  flex-shrink: 0; margin-top: 4px;
+}
+.dot-normal { background: var(--green); }
+.dot-vigilancia { background: var(--purple); }
+.dot-amenaza { background: var(--yellow); }
+.dot-emergencia { background: var(--red); box-shadow: 0 0 8px rgba(220,38,38,.25); }
+.alerta-body { flex: 1; min-width: 0; }
+.alerta-nivel { font-size: 14px; font-weight: 700; text-transform: capitalize; }
+.alerta-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.conf-bar { height: 4px; background: #e5e7eb; border-radius: 999px; margin-top: 8px; overflow: hidden; }
+.conf-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width .4s; }
+.vacio { text-align: center; padding: 26px 18px; color: var(--muted); font-size: 13px; }
+
+.ctrl-list { display: grid; gap: 1px; }
+.ctrl-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px; gap: 16px;
+  border-bottom: 1px solid var(--border);
+  background: #fff;
+}
+.ctrl-item:last-child { border-bottom: none; }
+.ctrl-name { font-size: 14px; font-weight: 700; }
+.ctrl-desc { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+.toggle { position: relative; width: 46px; height: 26px; flex-shrink: 0; cursor: pointer; }
+.toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+.track {
+  position: absolute; inset: 0;
+  background: #d1d5db; border-radius: 999px;
+  transition: background .25s;
+}
+.toggle input:checked + .track { background: var(--accent); }
+.thumb {
+  position: absolute; top: 3px; left: 3px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.18);
+  transition: transform .25s cubic-bezier(.34,1.56,.64,1);
+}
+.toggle input:checked ~ .thumb { transform: translateX(20px); }
+
+.rgb-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.btn-color {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid transparent; cursor: pointer;
+  transition: transform .15s, box-shadow .15s;
+}
+.btn-color:hover { transform: scale(1.08); }
+.btn-r { background: #dc2626; }
+.btn-g { background: #16a34a; }
+.btn-b { background: #2563eb; }
+.btn-off {
+  background: #f3f4f6; border-color: #e5e7eb;
+  font-size: 13px; color: var(--muted);
+  width: auto; min-width: 34px; padding: 0 12px;
+}
+.btn-cam {
+  padding: 9px 14px;
+  border: 1px solid var(--border); border-radius: 12px;
+  background: var(--panel); font-size: 13px; font-weight: 700;
+  cursor: pointer; font-family: inherit; color: var(--text);
+}
+.btn-cam:hover { background: #f3f4f6; }
+
+.ts-bar {
+  text-align: center; font-size: 12px; color: var(--muted);
+  padding: 10px 14px; margin-top: 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.footer {
+  text-align: center; font-size: 12px; color: var(--muted);
+  padding: 28px 0 0; line-height: 1.8;
+}
+.footer strong { color: var(--text); }
+
+.hide-demo { display: none !important; }
+
+@media (max-width: 920px) {
+  .hero, .grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 720px) {
+  .app { padding: 0 12px 56px; }
+  .header { margin: 0 -12px; padding: 12px; }
+  .header-inner { align-items: flex-start; }
+  .badge { align-self: flex-start; }
+  .hero-card { padding: 18px; }
+  .hero-metrics, .ia-row, .sensor-grid { grid-template-columns: 1fr; }
+  .ctrl-item { align-items: flex-start; flex-direction: column; }
+  .rgb-row { justify-content: flex-start; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ══ HEADER ══ -->
+<header class="header">
+  <div class="header-inner">
+    <div class="header-left">
+      <div class="logo">🦺</div>
+      <div class="header-copy">
+        <div class="header-title">VestaGuard</div>
+        <div class="header-sub">Dashboard Firebase para monitoreo y control remoto</div>
+      </div>
+    </div>
+    <div id="badge" class="badge badge-offline">
+      <span class="dot"></span>
+      <span id="badge-txt">OFFLINE</span>
+    </div>
+  </div>
+</header>
+
+<div id="ts-bar" class="ts-bar">Actualizando...</div>
+
+<section class="hero">
+  <div class="hero-metrics">
+    <div class="metric">
+      <div class="metric-label">Sistema</div>
+      <div class="metric-value" id="metric-sistema">OFFLINE</div>
+      <div class="metric-sub">Estado actual</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Alertas</div>
+      <div class="metric-value" id="metric-alertas">0</div>
+      <div class="metric-sub">Últimas 5</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Sensores</div>
+      <div class="metric-value" id="metric-sensores">0</div>
+      <div class="metric-sub">Lecturas activas</div>
+    </div>
+  </div>
+</section>
+
+<div class="grid">
+  <div class="stack">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Conexión Firebase</div>
+          <div class="card-sub">Configura la base de datos en tiempo real para operar VestaGuard.</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <button class="cfg-toggle" id="cfg-btn" onclick="toggleCfg()">
+          Mostrar configuración
+          <span class="arrow">▼</span>
+        </button>
+        <div class="cfg-body" id="cfg-body">
+          <div class="cfg-field">
+            <label>API Key</label>
+            <input id="c-apiKey" type="text" placeholder="AIzaSy..."/>
+          </div>
+          <div class="cfg-field">
+            <label>Database URL</label>
+            <input id="c-dbURL" type="text" placeholder="https://vestaguard-default-rtdb.firebaseio.com"/>
+          </div>
+          <div class="cfg-field">
+            <label>Auth Domain</label>
+            <input id="c-authDomain" type="text" placeholder="vestaguard.firebaseapp.com"/>
+          </div>
+          <div class="cfg-field">
+            <label>Project ID</label>
+            <input id="c-projectId" type="text" placeholder="vestaguard"/>
+          </div>
+          <button class="btn-primary" onclick="conectarFirebase()">Conectar Firebase</button>
+          <p class="cfg-note">
+            Este dashboard está preparado para despliegue real. No usa demo automática.
+            Si aún no conectas Firebase, la vista permanece en estado offline.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Última decisión IA</div>
+          <div class="card-sub">Ruta: vestaguard/alertas_ia</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="ia-banner normal" id="ia-banner">
+          <div class="ia-head">
+            <span class="ia-label">Clasificación actual</span>
+            <span class="ia-chip chip-normal" id="ia-chip">NORMAL</span>
+          </div>
+          <div class="ia-row">
+            <div class="ia-stat">
+              <div class="ia-val" id="ia-clas">—</div>
+              <div class="ia-sub">Clasificación</div>
+            </div>
+            <div class="ia-stat">
+              <div class="ia-val" id="ia-conf">—</div>
+              <div class="ia-sub">Confianza</div>
+            </div>
+            <div class="ia-stat">
+              <div class="ia-val" id="ia-accion">—</div>
+              <div class="ia-sub">Acción</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Sensores</div>
+          <div class="card-sub">Ruta: vestaguard/sensores</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="sensor-grid">
+          <div class="sensor-card" id="c-dist">
+            <div class="sensor-icon">📏</div>
+            <div class="sensor-name">Distancia</div>
+            <div class="sensor-val" id="v-dist">—</div>
+            <div class="sensor-unit">cm · HC-SR04</div>
+          </div>
+          <div class="sensor-card" id="c-pir">
+            <div class="sensor-icon">👁️</div>
+            <div class="sensor-name">PIR</div>
+            <div class="sensor-val" id="v-pir">—</div>
+            <div class="sensor-unit">Movimiento pasivo</div>
+          </div>
+          <div class="sensor-card" id="c-acel">
+            <div class="sensor-icon">📐</div>
+            <div class="sensor-name">Aceleración Y</div>
+            <div class="sensor-val" id="v-acel">—</div>
+            <div class="sensor-unit">g · MPU6050</div>
+          </div>
+          <div class="sensor-card" id="c-caida">
+            <div class="sensor-icon">⚠️</div>
+            <div class="sensor-name">Caída</div>
+            <div class="sensor-val" id="v-caida">—</div>
+            <div class="sensor-unit">MPU6050</div>
+          </div>
+          <div class="sensor-card" id="c-panico">
+            <div class="sensor-icon">🆘</div>
+            <div class="sensor-name">Pánico</div>
+            <div class="sensor-val" id="v-panico">—</div>
+            <div class="sensor-unit">GPIO 32</div>
+          </div>
+          <div class="sensor-card" id="c-bat">
+            <div class="sensor-icon">🔋</div>
+            <div class="sensor-name">Batería</div>
+            <div class="sensor-val" id="v-bat">—</div>
+            <div class="sensor-unit">%</div>
+          </div>
+        </div>
+        <div class="gps-card" style="margin-top:12px" id="c-gps">
+          <span class="gps-icon">📍</span>
+          <div>
+            <div class="gps-coords" id="v-gps">Sin fix GPS</div>
+            <div class="gps-label">NEO-6M · vestaguard/sensores</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Alertas recientes</div>
+          <div class="card-sub">Últimas 5 alertas registradas</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="alerta-list" id="lista-alertas">
+          <div class="vacio">Sin alertas registradas aún.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Estado del sistema</div>
+          <div class="card-sub">Ruta: vestaguard/sistema/estado</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="metric" style="margin-bottom:12px">
+          <div class="metric-label">Conectividad</div>
+          <div class="metric-value" id="metric-conectividad">OFFLINE</div>
+          <div class="metric-sub">Se actualiza al conectar Firebase</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Última actualización</div>
+          <div class="metric-value" style="font-size:18px" id="metric-update">—</div>
+          <div class="metric-sub">Tiempo local del navegador</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Control remoto</div>
+          <div class="card-sub">Ruta: vestaguard/actuadores</div>
+        </div>
+      </div>
+      <div class="card-body" style="padding-top: 6px">
+        <div class="ctrl-list">
+          <div class="ctrl-item">
+            <div>
+              <div class="ctrl-name">Motores hápticos</div>
+              <div class="ctrl-desc">Vibración del chaleco</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="tog-motor" onchange="enviarActuador('motores', this.checked)"/>
+              <div class="track"></div>
+              <div class="thumb"></div>
+            </label>
+          </div>
+          <div class="ctrl-item">
+            <div>
+              <div class="ctrl-name">LED RGB</div>
+              <div class="ctrl-desc">Indicador visual</div>
+            </div>
+            <div class="rgb-row">
+              <button class="btn-color btn-r" title="Rojo" onclick="enviarRGB('ROJO')"></button>
+              <button class="btn-color btn-g" title="Verde" onclick="enviarRGB('VERDE')"></button>
+              <button class="btn-color btn-b" title="Azul" onclick="enviarRGB('AZUL')"></button>
+              <button class="btn-color btn-off" title="Apagar" onclick="enviarRGB('APAGAR')">✕</button>
+            </div>
+          </div>
+          <div class="ctrl-item">
+            <div>
+              <div class="ctrl-name">Relevador</div>
+              <div class="ctrl-desc">Salida auxiliar / emergencia</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="tog-rele" onchange="enviarActuador('relevador', this.checked)"/>
+              <div class="track"></div>
+              <div class="thumb"></div>
+            </label>
+          </div>
+          <div class="ctrl-item">
+            <div>
+              <div class="ctrl-name">ESP32-CAM</div>
+              <div class="ctrl-desc">Disparo manual de captura</div>
+            </div>
+            <button class="btn-cam" onclick="enviarCaptura()">Capturar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="footer" style="margin-top:24px">
+  <strong>VestaGuard</strong> — Chaleco Háptico Inteligente para Seguridad Urbana<br/>
+  Alvarez Guevara Estefania Guadalupe (23240077) &nbsp;·&nbsp;
+  Rangel Hernández Aldo (23240272) &nbsp;·&nbsp;
+  Reyes Gutiérrez Pablo Alberto (23240055)<br/>
+  Sistemas Programables — ISC — TecNM / IT León — 2026
+</footer>
+
+</div><!-- /app -->
+
+<script>
+/*
+ * VestaGuard Dashboard — Lógica JavaScript
+ * Basado en: Sist Progr Unidad4 Firebase.txt (maestra)
+ * Nodos Firebase usados:
+ *   vestaguard/sensores       → última lectura de sensores
+ *   vestaguard/alertas_ia     → historial de alertas IA (últimas 5)
+ *   vestaguard/actuadores     → estado/escritura de actuadores
+ *   vestaguard/sistema/estado → online/offline
+ */
+'use strict';
+
+const app = { db: null, demo: true, alertas: [], timer: null };
+
+/* ── Helpers ── */
+function ts() { return new Date().toLocaleString('es-MX'); }
+
+function setEstado(online, demo) {
+  const b = document.getElementById('badge');
+  const t = document.getElementById('badge-txt');
+  b.className = 'badge ' + (demo ? 'badge-demo' : online ? 'badge-online' : 'badge-offline');
+  t.textContent = demo ? 'DEMO' : online ? 'ONLINE' : 'OFFLINE';
+  document.getElementById('metric-conectividad').textContent = demo ? 'DEMO' : online ? 'ONLINE' : 'OFFLINE';
+  document.getElementById('metric-sistema').textContent = demo ? 'DEMO' : online ? 'ONLINE' : 'OFFLINE';
+  document.getElementById('ts-bar').textContent = 'Actualizado: ' + ts();
+  document.getElementById('metric-update').textContent = ts();
+}
+
+/* ── Config toggle ── */
+function toggleCfg() {
+  const btn = document.getElementById('cfg-btn');
+  const body = document.getElementById('cfg-body');
+  btn.classList.toggle('open');
+  body.classList.toggle('show');
+}
+
+/* ── Sensores ── */
+function pintarSensores(d) {
+  const set = (id, v, sfx) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = (v != null) ? v + (sfx || '') : '—';
+  };
+  let activos = 0;
+
+  const dist = d.distancia_cm;
+  set('v-dist', dist != null ? Math.round(dist) : null, ' cm');
+  const cd = document.getElementById('c-dist');
+  cd.className = 'sensor-card ' + (dist <= 80 ? 'alerta' : dist <= 150 ? 'warn' : 'ok');
+  if (dist != null) activos++;
+
+  const pir = d.movimiento_pir;
+  set('v-pir', pir ? 'DETECTADO' : 'Normal');
+  document.getElementById('c-pir').className = 'sensor-card ' + (pir ? 'alerta' : 'ok');
+  if (pir != null) activos++;
+
+  set('v-acel', d.aceleracion_y != null ? d.aceleracion_y.toFixed(2) : null, ' g');
+  if (d.aceleracion_y != null) activos++;
+
+  const caida = d.caida_detectada;
+  set('v-caida', caida ? '¡CAÍDA!' : 'Normal');
+  document.getElementById('c-caida').className = 'sensor-card ' + (caida ? 'alerta' : 'ok');
+  if (caida != null) activos++;
+
+  const panico = d.boton_panico;
+  set('v-panico', panico ? '¡ACTIVO!' : 'Normal');
+  document.getElementById('c-panico').className = 'sensor-card ' + (panico ? 'alerta' : 'ok');
+  if (panico != null) activos++;
+
+  const bat = d.bateria_pct;
+  set('v-bat', bat != null ? bat : null, '%');
+  document.getElementById('c-bat').className = 'sensor-card ' + (bat < 20 ? 'alerta' : bat < 40 ? 'warn' : 'ok');
+  if (bat != null) activos++;
+
+  const lat = d.gps_latitud, lon = d.gps_longitud;
+  if (lat != null && lon != null) {
+    document.getElementById('v-gps').textContent = lat.toFixed(5) + ', ' + lon.toFixed(5);
+    document.getElementById('c-gps').style.borderLeft = d.gps_fijado ? '3px solid #16a34a' : '3px solid #d97706';
+    activos++;
+  }
+
+  document.getElementById('metric-sensores').textContent = String(activos);
+  document.getElementById('ts-bar').textContent = 'Actualizado: ' + ts();
+  document.getElementById('metric-update').textContent = ts();
+}
+
+/* ── IA ── */
+const CHIP_CLS = {
+  normal:     'chip-normal',
+  vigilancia: 'chip-vigilancia',
+  amenaza:    'chip-amenaza',
+  emergencia: 'chip-emergencia',
+};
+const BANNER_CLS = { normal:'normal', vigilancia:'vigilancia', amenaza:'amenaza', emergencia:'emergencia' };
+
+function pintarIA(d) {
+  const clas = (d.clasificacion || 'normal').toLowerCase();
+  document.getElementById('ia-clas').textContent  = clas.toUpperCase();
+  document.getElementById('ia-conf').textContent  = d.confianza != null ? (d.confianza * 100).toFixed(0) + '%' : '—';
+  document.getElementById('ia-accion').textContent = d.accion || '—';
+  const chip = document.getElementById('ia-chip');
+  chip.textContent = clas.toUpperCase();
+  chip.className   = 'ia-chip ' + (CHIP_CLS[clas] || CHIP_CLS.normal);
+  document.getElementById('ia-banner').className = 'ia-banner ' + (BANNER_CLS[clas] || 'normal');
+}
+
+/* ── Alertas ── */
+function agregarAlerta(d) {
+  const clas = (d.clasificacion || 'normal').toLowerCase();
+  app.alertas.unshift({ clas, ts: d.timestamp_local || d.timestamp || ts(), conf: d.confianza || 0, accion: d.accion || '' });
+  if (app.alertas.length > 5) app.alertas.pop();
+  pintarListaAlertas();
+  document.getElementById('metric-alertas').textContent = String(app.alertas.length);
+}
+
+function pintarListaAlertas() {
+  const lista = document.getElementById('lista-alertas');
+  if (!app.alertas.length) { lista.innerHTML = '<div class="vacio">Sin alertas registradas aún.</div>'; return; }
+  lista.innerHTML = '';
+  app.alertas.forEach(a => {
+    const el = document.createElement('div');
+    el.className = 'alerta-item';
+    el.innerHTML = `
+      <div class="alerta-dot dot-${a.clas}"></div>
+      <div class="alerta-body">
+        <div class="alerta-nivel">${a.clas}</div>
+        <div class="alerta-meta">${a.ts}${a.accion ? ' — ' + a.accion : ''}</div>
+        <div class="conf-bar"><div class="conf-fill" style="width:${Math.round(a.conf*100)}%"></div></div>
+      </div>`;
+    lista.appendChild(el);
+  });
+}
+
+/* ── Actuadores ── */
+function enviarActuador(act, encendido) {
+  const val = encendido ? 'ON' : 'OFF';
+  _send(act, val);
+}
+function enviarRGB(color) { _send('rgb', color); }
+function enviarCaptura()  { _send('camara_disparo', 'CAPTURAR'); }
+
+function _send(act, val) {
+  if (app.db && !app.demo) {
+    app.db.ref('vestaguard/actuadores').update({ [act]: val, ultimo_cambio: new Date().toISOString() });
+  }
+}
+
+/* ── Firebase ── */
+function conectarFirebase() {
+  const apiKey     = document.getElementById('c-apiKey').value.trim();
+  const dbURL      = document.getElementById('c-dbURL').value.trim();
+  const authDomain = document.getElementById('c-authDomain').value.trim();
+  const projectId  = document.getElementById('c-projectId').value.trim();
+
+  if (!apiKey || !dbURL) {
+    alert('Ingresa al menos el API Key y la Database URL.\nSigue el README_FIREBASE.md.');
+    return;
+  }
+  try {
+    const fapp = firebase.initializeApp({ apiKey, authDomain, databaseURL: dbURL, projectId });
+    app.db   = firebase.database(fapp);
+    app.demo = false;
+    suscribir();
+    setEstado(true, false);
+    document.getElementById('cfg-btn').innerHTML = '✅ Firebase conectado <span class="arrow">▼</span>';
+  } catch(e) {
+    alert('Error Firebase: ' + e.message);
+  }
+}
+
+function suscribir() {
+  const db = app.db;
+  db.ref('vestaguard/sensores').on('value', s => { const d = s.val(); if (d) pintarSensores(d); });
+  db.ref('vestaguard/alertas_ia').limitToLast(5).on('child_added', s => {
+    const d = s.val(); if (d) { pintarIA(d); agregarAlerta(d); }
+  });
+  db.ref('vestaguard/sistema/estado').on('value', s => {
+    const d = s.val(); if (d) setEstado(d.online === true, false);
+  });
+  db.ref('vestaguard/actuadores').on('value', s => {
+    const d = s.val() || {};
+    if (d.motores   !== undefined) document.getElementById('tog-motor').checked = d.motores   === 'ON';
+    if (d.relevador !== undefined) document.getElementById('tog-rele').checked  = d.relevador === 'ON';
+  });
+}
+
+/* ── Init ── */
+window.addEventListener('load', () => {
+  setEstado(false, false);
+  document.getElementById('metric-conectividad').textContent = 'OFFLINE';
+  document.getElementById('metric-sistema').textContent = 'OFFLINE';
+  document.getElementById('metric-update').textContent = 'Sin conexión';
+});
+</script>
+</body>
+</html>
